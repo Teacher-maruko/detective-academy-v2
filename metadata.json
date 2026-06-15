@@ -1,0 +1,7 @@
+{
+  "name": "Remix: 推理神探：無限邏輯謎題",
+  "description": "一款結合愛因斯坦邏輯推理格子、偵探劇情、12大主題與無限題庫的單機HTML5推理解謎遊戲。",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
