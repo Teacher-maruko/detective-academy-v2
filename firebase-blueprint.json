@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student Profile",
+      "description": "Student progress, state, inventory and stats",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "studentNo": { "type": "string" },
+        "level": { "type": "integer" },
+        "xp": { "type": "integer" },
+        "coins": { "type": "integer" },
+        "stamina": { "type": "integer" },
+        "maxStamina": { "type": "integer" },
+        "detectiveRank": { "type": "string" },
+        "solvedCount": { "type": "integer" },
+        "solvedByDifficulty": { "type": "object" },
+        "solvedByTheme": { "type": "object" },
+        "unstoppableStreak": { "type": "integer" },
+        "lastLoginDate": { "type": "string" },
+        "isDailyDoneToday": { "type": "boolean" },
+        "hintsUsed": { "type": "integer" },
+        "walkthroughCompleted": { "type": "boolean" },
+        "achievements": { "type": "array" },
+        "collections": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "studentClass", "studentNo"]
+    },
+    "TeacherPuzzle": {
+      "title": "Teacher Puzzle",
+      "description": "A custom puzzle designed by a teacher",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "difficulty": { "type": "integer" },
+        "size": { "type": "integer" },
+        "mode": { "type": "string" },
+        "categories": { "type": "array" },
+        "clues": { "type": "array" },
+        "solution": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "categories", "clues", "solution"]
+    },
+    "LeaderboardEntry": {
+      "title": "Leaderboard Entry",
+      "description": "Recorded solved game on the classroom scoreboard",
+      "type": "object",
+      "properties": {
+        "playerName": { "type": "string" },
+        "studentClass": { "type": "string" },
+        "studentNo": { "type": "string" },
+        "puzzleName": { "type": "string" },
+        "timeSeconds": { "type": "integer" },
+        "errorsCount": { "type": "integer" },
+        "hintsCount": { "type": "integer" },
+        "totalScore": { "type": "integer" },
+        "date": { "type": "string" }
+      },
+      "required": ["playerName", "studentClass", "studentNo", "puzzleName", "totalScore"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Path to store synchronized student profile and statistics"
+    },
+    "/teacher_puzzles/{puzzleId}": {
+      "schema": "TeacherPuzzle",
+      "description": "Path to store teacher customized puzzles"
+    },
+    "/leaderboards/{entryId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Path to store student solution scoreboards"
+    }
+  }
+}

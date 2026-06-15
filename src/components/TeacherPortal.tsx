@@ -83,6 +83,61 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
+  // Google Sheets integration state
+  const [teacherSubTab, setTeacherSubTab] = useState<'puzzles' | 'google-sheets'>('puzzles');
+  const [sheetsUrlVal, setSheetsUrlVal] = useState(() => dbService.getGoogleSheetsUrl());
+  const [isTestLoading, setIsTestLoading] = useState(false);
+  const [testResponse, setTestResponse] = useState<{ success?: boolean; message?: string } | null>(null);
+  
+  const [googleStudents, setGoogleStudents] = useState<any[]>([]);
+  const [isStudentsLoading, setIsStudentsLoading] = useState(false);
+
+  const handleFetchStudents = async () => {
+    const url = dbService.getGoogleSheetsUrl();
+    if (!url) {
+      return;
+    }
+    
+    setIsStudentsLoading(true);
+    try {
+      const response = await fetch(`${url}?action=getAll`);
+      if (!response.ok) throw new Error(`HTTP 錯誤碼: ${response.status}`);
+      const result = await response.json();
+      if (result.success && result.data) {
+        setGoogleStudents(result.data);
+      } else {
+        alert(`抓取失敗: ${result.error || '原因未知'}`);
+      }
+    } catch (e: any) {
+      console.warn(`[Google Sheets] 獲取學生失敗:`, e);
+    } finally {
+      setIsStudentsLoading(false);
+    }
+  };
+
+  const handleSaveSheetsUrl = async () => {
+    if (!sheetsUrlVal) {
+      dbService.setGoogleSheetsUrl('');
+      setGoogleStudents([]);
+      alert('⚠️ 已清空 Google Sheets 儲存網址，系統將恢復為純本機 LocalStorage 玩耍存檔模式。');
+      return;
+    }
+
+    setIsTestLoading(true);
+    setTestResponse(null);
+    const test = await dbService.testConnection(sheetsUrlVal);
+    setIsTestLoading(false);
+    
+    setTestResponse(test);
+    if (test.success) {
+      dbService.setGoogleSheetsUrl(sheetsUrlVal);
+      alert('🎉 恭喜丸子老師！Google Sheets 雲端連線測試大成功！目前系統已切換為：【Google Sheets 試算表雲端同步系統】！學生的設備登入均會與此試算表即時連線同步。');
+      handleFetchStudents();
+    } else {
+      alert('❌ 雲端連線失敗！請檢查您的 Apps Script 網頁應用程式 URL 是否填寫正確，或是否完成了「網頁應用程式」部署（權限需選擇：任何人，以您身分執行）。');
+    }
+  };
+
   // ---------------------------------
   // FORM STATES FOR COMPOSING PUZZLE
   // ---------------------------------
@@ -128,11 +183,11 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'maruko' || password === '888' || password === '') {
+    if (password === '0301' || password === 'maruko' || password === '888' || password === '') {
       setIsLogged(true);
       setLoginError('');
     } else {
-      setLoginError('密碼不正確哦！提示：國小教師可以直接免密碼或輸入 888 快速進入。');
+      setLoginError('密碼不正確哦！提示：國小教師請輸入 Maruko 老師規定的密碼「0301」以登入。');
     }
   };
 
@@ -208,42 +263,42 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
       case ClueType.Pair:
         params.catB = clueCatB;
         params.itemB = clueItemB;
-        text = `✨ ${itemA_Name} 的關聯同伴是 ${itemB_Name}。`;
+        text = `✨ ${itemA_Name} 和 ${itemB_Name} 是好朋友，在一起。`;
         break;
       case ClueType.Exclude:
         params.catB = clueCatB;
         params.itemB = clueItemB;
-        text = `❌ 可以確定的是，${itemA_Name} 不會是 ${itemB_Name} 的組合。`;
+        text = `❌ 可以確定的是，${itemA_Name} 不是 ${itemB_Name}。`;
         break;
       case ClueType.LeftOf:
         params.catB = clueCatB;
         params.itemB = clueItemB;
-        text = `👈 ${itemA_Name} 恰好坐在 ${itemB_Name} 正左邊的一格。`;
+        text = `👈 ${itemA_Name} 正好在 ${itemB_Name} 的左邊。`;
         break;
       case ClueType.RightOf:
         params.catB = clueCatB;
         params.itemB = clueItemB;
-        text = `👉 ${itemA_Name} 恰好坐在 ${itemB_Name} 正右邊的一格。`;
+        text = `👉 ${itemA_Name} 正好在 ${itemB_Name} 的右邊。`;
         break;
       case ClueType.Adjacent:
         params.catB = clueCatB;
         params.itemB = clueItemB;
-        text = `🤝 ${itemA_Name} 與 ${itemB_Name} 坐在一塊兒（相鄰）。`;
+        text = `🤝 ${itemA_Name} 就在 ${itemB_Name} 的隔壁。`;
         break;
       case ClueType.NotAdjacent:
         params.catB = clueCatB;
         params.itemB = clueItemB;
-        text = `🚫 聽說過，${itemA_Name} 與 ${itemB_Name} 絕對沒有坐在一塊兒（不相鄰）。`;
+        text = `🚫 聽說過，${itemA_Name} 沒在 ${itemB_Name} 的隔壁。`;
         break;
       case ClueType.SpecificPosition:
         params.pos = cluePos;
-        text = `📍 經過確認，${itemA_Name} 的座位序號正是在第 ${cluePos + 1} 個位置。`;
+        text = `📍 經過確認，${itemA_Name} 在從左邊數來第 ${cluePos + 1} 個位置。`;
         break;
       case ClueType.OddPosition:
-        text = `🎈 我們知道，${itemA_Name} 的座位序號是單數（奇數位置）。`;
+        text = `🎈 我們知道，${itemA_Name} 的位置是在單號位置哦。`;
         break;
       case ClueType.EvenPosition:
-        text = `🎈 我們知道，${itemA_Name} 的座位序號是雙數（偶數位置）。`;
+        text = `🎈 我們知道，${itemA_Name} 的位置是在雙號位置哦。`;
         break;
       case ClueType.LessThan:
         params.catB = clueCatB;
@@ -313,7 +368,15 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
 
   const handleSave = () => {
     const { count } = countSolutions(clues, size, categories.length, 3000);
-    const hasSingleSolution = count === 1;
+    
+    if (count === 0) {
+      alert('⚠️ 無法儲存！此題目目前「無解」（沒有任何排列能符合所有線索），請先重新調整修正你的線索！');
+      return;
+    }
+    if (count > 1) {
+      alert(`⚠️ 無法儲存！此題目目前有「多重解」（共 ${count} 種合規答案）。國小學生的考題必須只有 1 個唯一解答哦！請多添加幾個在隔壁、特定位置或左右排序的限制線索！`);
+      return;
+    }
 
     // Build the virtual ground truth solution array
     let finalSolution: number[][] = Array.from({ length: size }, () => Array(categories.length).fill(0));
@@ -694,8 +757,8 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
         <div className="bg-white border-2 border-slate-900 rounded-2xl p-4 mb-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-150 mb-3">
             <div>
-              <h4 className="font-black text-slate-900 text-xs">🧪 Puzzle Solver Validator：唯一解合理自檢系統</h4>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+              <h4 className="font-extrabold text-slate-900 text-xs text-left">🧪 Puzzle Solver Validator：唯一解合理自檢系統</h4>
+              <p className="text-[10px] text-slate-400 font-bold mt-0.5 text-left">
                 利用內嵌回溯約束求解演算法，確保教師出題不會有無解或多重答案的疏漏。
               </p>
             </div>
@@ -708,7 +771,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
             </button>
           </div>
 
-          <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs transition-all ${
+          <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs text-left transition-all ${
             validationResult.status === 'perfect' 
               ? 'bg-emerald-50 border-emerald-300 text-emerald-850'
               : validationResult.status === 'multiple'
@@ -717,7 +780,7 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
               ? 'bg-rose-50 border-rose-300 text-rose-850'
               : 'bg-slate-50 border-slate-200 text-slate-500'
           }`}>
-            <div className="shrink-0 mt-0.5">
+            <div className="shrink-0 mt-0.5 animate-bounce">
               {validationResult.status === 'perfect' && <CheckCircle className="w-5 h-5 text-emerald-500" />}
               {validationResult.status === 'multiple' && <AlertTriangle className="w-5 h-5 text-amber-500" />}
               {validationResult.status === 'no_solution' && <AlertTriangle className="w-5 h-5 text-rose-500" />}
@@ -772,100 +835,278 @@ export const TeacherPortal: React.FC<TeacherPortalProps> = ({ onBack, onSelectPl
       {/* Tape design */}
       <div className="absolute top-2 left-6 bg-blue-300 w-16 h-5 opacity-80" style={{ transform: 'rotate(-10deg)' }} />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-5 border-b border-dashed border-slate-300">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-4">
         <div>
           <h3 className="font-extrabold text-xl text-slate-900 flex items-center gap-1.5">
             <BookOpen className="w-6 h-6 text-[#5B8DEF]" />
-            <span>自製題庫管理中心 (教師後台)</span>
+            <span>丸子老師思維教學研究中心 📚</span>
           </h3>
           <p className="text-slate-500 font-bold text-xs mt-0.5">
-            專為課堂教學設計，教師可以在此客製化建立、複製和驗證邏輯格子的謎題。
+            專為國小班級教學設計，管理課堂題庫、自訂題目與多設備 Google Sheets 試算表同步學籍！
           </p>
         </div>
+      </div>
 
+      {/* Sub tabs navigation */}
+      <div className="flex border-3 border-slate-900 bg-slate-100 p-1 rounded-2xl gap-1 mb-6 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
         <button
-          onClick={handleCreateNew}
-          className="bg-[#6BCB77] hover:bg-emerald-500 border-3 border-slate-950 text-slate-950 font-black text-xs py-2.5 px-5 rounded-2xl cursor-pointer shadow-[3px_3px_0_rgba(15,23,42,1)] hover:scale-105 active:scale-95 flex items-center gap-1"
+          type="button"
+          onClick={() => setTeacherSubTab('puzzles')}
+          className={`flex-1 py-2 rounded-xl font-black text-xs cursor-pointer flex justify-center items-center gap-1 transition-all ${
+            teacherSubTab === 'puzzles'
+              ? 'bg-[#FFF066] text-slate-900 border-2 border-slate-900 shadow-[1px_2px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-500 hover:text-slate-850 hover:bg-slate-200'
+          }`}
         >
-          <Plus className="w-4 h-4" /> <span>新增全新課堂考題</span>
+          📝 課堂自製題庫 ({puzzles.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTeacherSubTab('google-sheets');
+            handleFetchStudents();
+          }}
+          className={`flex-1 py-2 rounded-xl font-black text-xs cursor-pointer flex justify-center items-center gap-1 transition-all ${
+            teacherSubTab === 'google-sheets'
+              ? 'bg-[#5B8DEF] text-white border-2 border-slate-900 shadow-[1px_2px_0px_rgba(0,0,0,1)]'
+              : 'text-slate-500 hover:text-slate-850 hover:bg-slate-200'
+          }`}
+        >
+          📊 Google Sheets 雲端學籍 {dbService.getGoogleSheetsUrl() ? '🟢' : '⚪'}
         </button>
       </div>
 
-      {puzzles.length === 0 ? (
-        <div className="text-center py-16 bg-white border-2 border-dashed border-slate-300 rounded-3xl p-6 flex flex-col items-center justify-center gap-3">
-          <FolderHeart className="w-14 h-14 text-slate-300" />
-          <h4 className="font-extrabold text-slate-800 text-sm">目前尚無自製的推理大題目！</h4>
-          <p className="text-slate-400 font-bold text-xs max-w-sm">
-            點選右上方「新增全新課堂考題」來客製化一套適合你班上學生的主題，並透過唯一解系統自測試作吧！
-          </p>
-        </div>
+      {teacherSubTab === 'puzzles' ? (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xs font-black text-slate-600">📝 目前自學堂已發布題庫：</span>
+            <button
+              onClick={handleCreateNew}
+              className="bg-[#6BCB77] hover:bg-emerald-500 border-3 border-slate-950 text-slate-950 font-black text-xs py-2 px-4 rounded-xl cursor-pointer shadow-[2px_2px_0_rgba(15,23,42,1)] flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" /> <span>新增全新課堂考題</span>
+            </button>
+          </div>
+
+          {puzzles.length === 0 ? (
+            <div className="text-center py-16 bg-white border-2 border-dashed border-slate-300 rounded-3xl p-6 flex flex-col items-center justify-center gap-3">
+              <FolderHeart className="w-14 h-14 text-slate-300" />
+              <h4 className="font-extrabold text-slate-800 text-sm">目前尚無自製的推理大題目！</h4>
+              <p className="text-slate-400 font-bold text-xs max-w-sm">
+                點選右上角「新增全新課堂考題」來客製化一套適合你班上學生的主題，並透過唯一解系統自測試作吧！
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {puzzles.map((p) => {
+                const validation = countSolutions(p.clues, p.size, p.categories.length, 1500);
+                const isSingle = validation.count === 1;
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => handleEdit(p)}
+                    className="bg-white border-3 border-slate-900 rounded-2xl p-4 cursor-pointer shadow-[4px_4px_0_rgba(15,23,42,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_rgba(15,23,42,1)] transition-all flex flex-col justify-between gap-5 select-none"
+                  >
+                    
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex flex-col">
+                        <h4 className="font-black text-slate-900 text-sm truncate max-w-[170px]" title={p.title}>{p.title}</h4>
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          大小: {p.size}格格子 • {p.createdAt} 建立
+                        </span>
+                      </div>
+
+                      <span className={`text-[9px] font-black py-0.5 px-2 rounded-lg border-2 shrink-0 ${
+                        isSingle 
+                          ? 'bg-emerald-100 border-emerald-400 text-emerald-850'
+                          : 'bg-rose-100 border-rose-400 text-rose-850 animate-pulse'
+                      }`}>
+                        {isSingle ? '✓ 完美唯一解' : '⚡ 尚非唯一解'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] bg-amber-50 border text-amber-800 rounded px-1.5 py-0.5 font-bold shrink-0">
+                        難度: Lv.{p.difficulty}
+                      </span>
+                      <span className="text-[10px] bg-blue-50 border text-blue-800 rounded px-1.5 py-0.5 font-bold shrink-0">
+                        主題: {PRESET_THEMES[p.category]?.name || '自訂世界'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold">擁有 {p.clues.length} 條邏輯線索</span>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => handleCopy(p.id, e)}
+                          className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg border cursor-pointer hover:border-slate-300 transition-all"
+                          title="複製一個草稿"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(p.id, e)}
+                          className="p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg border cursor-pointer transition-all"
+                          title="移除"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {puzzles.map((p) => {
-            // Count validation stats
-            const validation = countSolutions(p.clues, p.size, p.categories.length, 1500);
-            const isSingle = validation.count === 1;
+        /* GOOGLE SHEETS TAB CONTENT */
+        <div className="flex flex-col gap-6">
+          <div className="bg-white border-3 border-slate-900 rounded-2xl p-5 shadow-[4px_4px_0_rgba(15,23,42,1)] text-left">
+            <h4 className="font-extrabold text-sm text-slate-900 mb-2 border-l-4 border-slate-900 pl-2">
+              ⚙️ Google Sheets 數據庫連線設定
+            </h4>
+            <p className="text-slate-500 font-bold text-xs mb-4">
+              丸子老師能在下方貼上您部署 Google Apps Script 產生的「網頁應用程式 URL」。系統會自動將每位學生的金幣、等級、答對題數等實體學籍資料備份在該試算表中，解決跨設備遊玩進度遺失的問題。
+            </p>
 
-            return (
-              <div
-                key={p.id}
-                onClick={() => handleEdit(p)}
-                className="bg-white border-3 border-slate-900 rounded-2xl p-4 cursor-pointer shadow-[4px_4px_0_rgba(15,23,42,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_rgba(15,23,42,1)] transition-all flex flex-col justify-between gap-5 select-none"
-              >
-                
-                {/* Header */}
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex flex-col">
-                    <h4 className="font-black text-slate-900 text-sm truncate max-w-[170px]" title={p.title}>{p.title}</h4>
-                    <span className="text-[10px] text-slate-400 font-bold">
-                      大小: {p.size}格格子 • {p.createdAt} 建立
-                    </span>
-                  </div>
-
-                  <span className={`text-[9px] font-black py-0.5 px-2 rounded-lg border-2 shrink-0 ${
-                    isSingle 
-                      ? 'bg-emerald-100 border-emerald-400 text-emerald-850'
-                      : 'bg-rose-100 border-rose-400 text-rose-850 animate-pulse'
-                  }`}>
-                    {isSingle ? '✓ 完美唯一解' : '⚡ 尚非唯一解'}
-                  </span>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-[11px] font-black text-slate-700 block mb-1">🔗 Google Apps Script 網頁應用程式網址 (Web App URL)：</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={sheetsUrlVal}
+                    onChange={(e) => setSheetsUrlVal(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/xxxxxxxxxxxxxx/exec"
+                    className="flex-1 bg-slate-50 border-3 border-slate-900 rounded-xl py-2 px-3 font-mono text-[11.5px] focus:outline-none focus:bg-white text-slate-800"
+                  />
+                  <button
+                    onClick={handleSaveSheetsUrl}
+                    disabled={isTestLoading}
+                    className="bg-[#5B8DEF] hover:bg-blue-600 font-black text-xs text-white border-2 border-slate-900 rounded-xl px-4 cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                  >
+                    {isTestLoading ? '測試中...' : '測試並啟用 🔗'}
+                  </button>
                 </div>
-
-                {/* Body items categories indicators */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] bg-amber-50 border text-amber-800 rounded px-1.5 py-0.5 font-bold shrink-0">
-                    難度: Lv.{p.difficulty}
-                  </span>
-                  <span className="text-[10px] bg-blue-50 border text-blue-800 rounded px-1.5 py-0.5 font-bold shrink-0">
-                    主題: {PRESET_THEMES[p.category]?.name || '自訂世界'}
-                  </span>
-                </div>
-
-                {/* Actions bottom bar */}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <span className="text-[10px] text-slate-400 font-bold">擁有 {p.clues.length} 條邏輯線索</span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => handleCopy(p.id, e)}
-                      className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg border cursor-pointer hover:border-slate-300 transition-all"
-                      title="複製一個草稿"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(p.id, e)}
-                      className="p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg border cursor-pointer transition-all"
-                      title="移除"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
               </div>
-            );
-          })}
+
+              {testResponse && (
+                <div className={`p-3 rounded-xl border-2 font-bold text-xs text-left ${
+                  testResponse.success 
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-800' 
+                    : 'bg-rose-50 border-rose-400 text-rose-800'
+                }`}>
+                  {testResponse.success ? '🟢 ' : '❌ '}{testResponse.message}
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 mt-2 bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-slate-500 text-left">
+                <span className="text-[11px] font-black">📌 雲端連線狀態：</span>
+                {dbService.getGoogleSheetsUrl() ? (
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+                    🟢 已連線試算表雲端儲存庫
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                    🟡 本機儲存模式 (LocalStorage Sandbox，不連線雲端)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Live student table */}
+          <div className="bg-white border-3 border-slate-900 rounded-2xl p-5 shadow-[4px_4px_0_rgba(15,23,42,1)] text-left">
+            <div className="flex justify-between items-center mb-4 border-b border-dashed border-slate-300 pb-3">
+              <h4 className="font-extrabold text-sm text-slate-900 border-l-4 border-slate-900 pl-2">
+                👥 全班探員學習與登載記錄 (雲端學員名冊)
+              </h4>
+              <button
+                onClick={handleFetchStudents}
+                disabled={isStudentsLoading}
+                className="flex items-center gap-1 bg-slate-50 hover:bg-slate-100 border-2 border-slate-900 rounded-lg px-2.5 py-1 font-black text-[10px] cursor-pointer text-slate-700"
+              >
+                <RefreshCw className={`w-3 h-3 ${isStudentsLoading ? 'animate-spin' : ''}`} />
+                <span>刷新學籍進度</span>
+              </button>
+            </div>
+
+            {isStudentsLoading ? (
+              <div className="text-center py-8 font-black text-slate-400 text-xs">
+                🔄 正在從 Google Sheet 抓取最新學員進度與成就登錄，請稍候...
+              </div>
+            ) : googleStudents.length === 0 ? (
+              <div className="text-center py-8 bg-slate-50 rounded-xl text-slate-400 font-bold text-xs">
+                {dbService.getGoogleSheetsUrl() 
+                  ? '📂 試算表目前資料為空，或尚未有學生使用本同步網址登錄。一經登記，名冊會在這裡即時出現哦！'
+                  : '⚠️ 尚未設定 Google Sheet 雲端連結，無法獲取學籍名錄。請在上方啟用。'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto border-2 border-slate-900 rounded-xl">
+                <table className="w-full text-left font-sans text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 border-b-2 border-slate-900">
+                      <th className="p-2.5 font-black text-slate-700">班級</th>
+                      <th className="p-2.5 font-black text-slate-700">座號</th>
+                      <th className="p-2.5 font-black text-slate-700">姓名</th>
+                      <th className="p-2.5 font-black text-slate-700 text-center">金幣 🪙</th>
+                      <th className="p-2.5 font-black text-slate-700 text-center">探員等級 ⭐</th>
+                      <th className="p-2.5 font-black text-slate-700 text-center">已破案數 🔎</th>
+                      <th className="p-2.5 font-black text-slate-700">最後更新時間</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {googleStudents.map((st, idx) => (
+                      <tr key={idx} className="border-b last:border-b-0 hover:bg-slate-50 font-medium text-slate-800">
+                        <td className="p-2.5 font-black">{st.studentClass}</td>
+                        <td className="p-2.5 font-mono">{st.studentNo}</td>
+                        <td className="p-2.5 font-extrabold text-slate-900">{st.name}</td>
+                        <td className="p-2.5 font-bold text-amber-600 text-center">{st.coins}</td>
+                        <td className="p-2.5 font-bold text-indigo-600 text-center">Lv.{st.level}</td>
+                        <td className="p-2.5 font-mono text-emerald-600 text-center font-bold">{st.solvedCount} 案</td>
+                        <td className="p-2.5 text-slate-400 text-[10px] font-mono">{st.lastUpdated}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Wizard for copying script code */}
+          <div className="bg-slate-900 text-slate-200 rounded-2xl p-5 font-sans border-4 border-slate-950 shadow-[4px_4px_0_rgba(15,23,42,1)] text-left">
+            <h4 className="font-extrabold text-sm text-[#ea580c] mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+              <span>📋 國小導師專用 Google Apps Script 雲端同步指令碼</span>
+            </h4>
+            <ol className="list-decimal pl-4 text-[11px] font-bold text-slate-300 space-y-1.5 mb-4">
+              <li>於 Google 雲端硬碟建立一個新的 <span className="text-[#38bdf8]">「Google 試算表」</span>。</li>
+              <li>點選上方選單的 <span className="text-[#38bdf8]">「擴充功能」 ➜ 「Apps Script」</span>。</li>
+              <li>清除裡面原本的所有文字，並將下方深藍色框格中的程式碼<span className="text-amber-300">「全部複製」</span>並貼上。</li>
+              <li>點選右上角 <span className="text-[#38bdf8]">「部署」 ➜ 「新部署」</span>。點選小齒輪選擇「網頁應用程式」。</li>
+              <li>設定：將「誰有權限存取」變更為 <span className="text-amber-300">「任何人」(Anyone)</span>，此項非常關鍵。</li>
+              <li>點擊「部署」並完成安全授權後，複製產生的「網頁應用程式 URL」貼在最上方的輸入框即大功告成！</li>
+            </ol>
+
+            <textarea
+              readOnly
+              onClick={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.select();
+                navigator.clipboard.writeText(dbService.getGASCode());
+                alert('📋 整合指令碼已經成功複製到剪貼簿中！快去 Apps Script 控制台黏貼吧。');
+              }}
+              value={dbService.getGASCode()}
+              className="w-full bg-[#0a0f1d] border-2 border-slate-800 text-[#5eead4] p-3 rounded-lg font-mono text-[10px] h-[180px] overflow-y-auto block cursor-pointer select-all focus:outline-none"
+              title="點按任意位置一鍵快速複製全部程式碼"
+            />
+            <p className="text-[10px] text-slate-400 mt-1.5 font-bold text-center">
+              💡 提示：點按上方深藍色框格內任意文字即可「一鍵複製完整程式碼」！
+            </p>
+          </div>
         </div>
       )}
 

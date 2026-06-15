@@ -12,9 +12,24 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ playerClass, p
   const [records, setRecords] = useState<SQLLeaderboardEntry[]>([]);
 
   useEffect(() => {
-    // Fetch rankings dynamically
-    const data = dbService.getLeaderboard(activeTab, playerClass);
-    setRecords(data);
+    // 1. Fetch rankings dynamically from offline LocalStorage db first
+    const offlineData = dbService.getLeaderboard(activeTab, playerClass);
+    setRecords(offlineData);
+
+    // 2. If a Google Sheet is active, pull the live cross-device rankings
+    const sheetsUrl = dbService.getGoogleSheetsUrl();
+    if (sheetsUrl) {
+      dbService.fetchLiveLeaderboard().then(entries => {
+        if (entries && entries.length > 0) {
+          if (activeTab === 'class') {
+            const filtered = entries.filter(e => e.studentClass === playerClass);
+            setRecords(filtered);
+          } else {
+            setRecords(entries);
+          }
+        }
+      }).catch(err => console.warn('Failed to load sheets live leaderboard:', err));
+    }
   }, [activeTab, playerClass, playerName]);
 
   return (

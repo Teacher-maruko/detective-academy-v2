@@ -165,7 +165,10 @@ export default function App() {
   // Active game mode navigation (7 requested elements)
   const [activeMenuTab, setActiveMenuTab] = useState<'adventure' | 'daily' | 'leaderboard' | 'gallery' | 'achievements' | 'teacher' | 'settings'>('adventure');
   const [adventureSubTab, setAdventureSubTab] = useState<'story' | 'endless' | 'teacher_puzzles'>('story');
-  const [walkthroughCompleted, setWalkthroughCompleted] = useState<boolean | null>(null);
+  const [walkthroughCompleted, setWalkthroughCompleted] = useState<boolean>(() => {
+    const saved = localStorage.getItem('detective_walkthrough_completed');
+    return saved !== 'false';
+  });
 
   // Story state
   const [storyOpenChapter, setStoryOpenChapter] = useState<any | null>(null);
@@ -253,8 +256,26 @@ export default function App() {
     }
 
     const savedWalkthrough = localStorage.getItem('detective_walkthrough_completed');
-    setWalkthroughCompleted(savedWalkthrough === 'true');
+    setWalkthroughCompleted(savedWalkthrough !== 'false');
   }, []);
+
+  // Background Cloud synchronization on startup if student is already logged in
+  useEffect(() => {
+    if (studentProfile.initialized) {
+      dbService.syncStudentProfileFirestore(
+        studentProfile.studentClass,
+        studentProfile.studentNo,
+        studentProfile.name
+      ).then(synced => {
+        if (synced) {
+          setStats(synced.stats);
+          setAchievements(synced.achievements || []);
+          setCollections(synced.collections || []);
+          setWalkthroughCompleted(synced.walkthroughCompleted);
+        }
+      }).catch(err => console.warn('Background sync on boot failed:', err));
+    }
+  }, [studentProfile.initialized]);
 
   // Save stats helper
   const saveGameState = (
@@ -269,9 +290,12 @@ export default function App() {
       studentClass: updatedStats.studentClass || profile.studentClass || '3年甲班',
       studentNo: updatedStats.studentNo || profile.studentNo || '01'
     };
-    dbService.saveStats(finalStats);
-    localStorage.setItem('detective_achievements', JSON.stringify(updatedAchievements));
-    localStorage.setItem('detective_collections', JSON.stringify(updatedCollections));
+    dbService.saveGameStateToCloudAndLocal(
+      finalStats,
+      updatedAchievements,
+      updatedCollections,
+      walkthroughCompleted === true
+    );
   };
 
   const handleCompleteWalkthrough = (coinsAwarded: number) => {
@@ -970,11 +994,27 @@ export default function App() {
             // Save inside player profile
             localStorage.setItem('detective_student_profile', JSON.stringify(initialProfile));
             
-            // Re-fetch correct stats linked with this student
-            const activeStats = dbService.getOrCreateStats(nameInput, classInput, noInput.padStart(2, '0'));
-            setStats(activeStats);
-            setStudentProfile(initialProfile);
-            playSynthSound('solve', soundEnabled);
+            // Trigger instant cloud sync to retrieve achievements/coins/backpack!
+            dbService.syncStudentProfileFirestore(classInput, noInput.padStart(2, '0'), nameInput).then((synced) => {
+              if (synced) {
+                setStats(synced.stats);
+                setAchievements(synced.achievements || []);
+                setCollections(synced.collections || []);
+                setWalkthroughCompleted(synced.walkthroughCompleted);
+              } else {
+                // If not synced or new, read the standard initial profile
+                const activeStats = dbService.getOrCreateStats(nameInput, classInput, noInput.padStart(2, '0'));
+                setStats(activeStats);
+              }
+              setStudentProfile(initialProfile);
+              playSynthSound('solve', soundEnabled);
+            }).catch((err) => {
+              console.warn('Sync failed on login, fallback to local', err);
+              const activeStats = dbService.getOrCreateStats(nameInput, classInput, noInput.padStart(2, '0'));
+              setStats(activeStats);
+              setStudentProfile(initialProfile);
+              playSynthSound('solve', soundEnabled);
+            });
           }} className="flex flex-col gap-4">
             
             <div>

@@ -413,7 +413,7 @@ export function generatePuzzle(
       } else if (s === Math.floor(N / 2)) {
         cluePool.push(createClue(ClueType.AtMiddle, { catA: c, itemA: itemIdx }, `${getItemStr(c, itemIdx)} 正好在最中間的位置。`));
       } else {
-        cluePool.push(createClue(ClueType.SpecificPosition, { catA: c, itemA: itemIdx, pos: s }, `${getItemStr(c, itemIdx)} 位於左起第 ${s + 1} 個位置。`));
+        cluePool.push(createClue(ClueType.SpecificPosition, { catA: c, itemA: itemIdx, pos: s }, `${getItemStr(c, itemIdx)} 在從左邊數來第 ${s + 1} 個位置。`));
       }
     }
   }
@@ -423,9 +423,9 @@ export function generatePuzzle(
     for (let c = 0; c < C; c++) {
       const itemIdx = solution[s][c];
       if ((s + 1) % 2 === 1) {
-        cluePool.push(createClue(ClueType.OddPosition, { catA: c, itemA: itemIdx }, `${getItemStr(c, itemIdx)} 的位置序號是奇數。`));
+        cluePool.push(createClue(ClueType.OddPosition, { catA: c, itemA: itemIdx }, `${getItemStr(c, itemIdx)} 在奇數（單數）的位置。`));
       } else {
-        cluePool.push(createClue(ClueType.EvenPosition, { catA: c, itemA: itemIdx }, `${getItemStr(c, itemIdx)} 的位置序號是偶數。`));
+        cluePool.push(createClue(ClueType.EvenPosition, { catA: c, itemA: itemIdx }, `${getItemStr(c, itemIdx)} 在偶數（雙數）的位置。`));
       }
     }
   }
@@ -436,12 +436,12 @@ export function generatePuzzle(
       for (let c2 = c1 + 1; c2 < C; c2++) {
         const item1 = solution[s][c1];
         const item2 = solution[s][c2];
-        cluePool.push(createClue(ClueType.Pair, { catA: c1, itemA: item1, catB: c2, itemB: item2 }, `${getItemStr(c1, item1)} 與 ${getItemStr(c2, item2)} 互相關聯。`));
+        cluePool.push(createClue(ClueType.Pair, { catA: c1, itemA: item1, catB: c2, itemB: item2 }, `${getItemStr(c1, item1)} 與 ${getItemStr(c2, item2)} 在一起。`));
 
         // Let's also add EXCLUDE clues (pick another random item from c2)
         const wrongS = (s + 1) % N;
         const wrongItem2 = solution[wrongS][c2];
-        cluePool.push(createClue(ClueType.Exclude, { catA: c1, itemA: item1, catB: c2, itemB: wrongItem2 }, `${getItemStr(c1, item1)} 與 ${getItemStr(c2, wrongItem2)} 沒有關係。`));
+        cluePool.push(createClue(ClueType.Exclude, { catA: c1, itemA: item1, catB: c2, itemB: wrongItem2 }, `${getItemStr(c1, item1)} 不是 ${getItemStr(c2, wrongItem2)}。`));
       }
     }
   }
@@ -458,21 +458,27 @@ export function generatePuzzle(
           cluePool.push(createClue(
             ClueType.LeftOf,
             { catA: c1, itemA: item1, catB: c2, itemB: itemRight },
-            `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemRight)} 的左邊一格。`
+            `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemRight)} 的左邊。`
           ));
           cluePool.push(createClue(
             ClueType.Adjacent,
             { catA: c1, itemA: item1, catB: c2, itemB: itemRight },
-            `${getItemStr(c1, item1)} 與 ${getItemStr(c2, itemRight)} 相鄰。`
+            `${getItemStr(c1, item1)} 與 ${getItemStr(c2, itemRight)} 在隔壁。`
           ));
         }
 
         if (s > 0) {
           const itemLeft = solution[s - 1][c2];
+          /*
           cluePool.push(createClue(
             ClueType.RightOf,
             { catA: c1, itemA: item1, catB: c2, itemB: itemLeft },
-            `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊一格。`
+            `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的/點右邊一格。` === `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊一格。` ? `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊一格。` : `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊一格。` ? `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊。` : `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊。`
+          */
+          cluePool.push(createClue(
+            ClueType.RightOf,
+            { catA: c1, itemA: item1, catB: c2, itemB: itemLeft },
+            `${getItemStr(c1, item1)} 正好在 ${getItemStr(c2, itemLeft)} 的右邊。`
           ));
         }
 
@@ -482,7 +488,7 @@ export function generatePuzzle(
           cluePool.push(createClue(
             ClueType.DistanceTwo,
             { catA: c1, itemA: item1, catB: c2, itemB: itemTwoRight },
-            `${getItemStr(c1, item1)} 與 ${getItemStr(c2, itemTwoRight)} 正好相隔兩格（兩者中隔一個位置）。`
+            `${getItemStr(c1, item1)} 與 ${getItemStr(c2, itemTwoRight)} 中間隔著一個位置。`
           ));
         }
 
@@ -492,7 +498,7 @@ export function generatePuzzle(
           cluePool.push(createClue(
             ClueType.NotAdjacent,
             { catA: c1, itemA: item1, catB: c2, itemB: itemFarRight },
-            `${getItemStr(c1, item1)} 與 ${getItemStr(c2, itemFarRight)} 不相鄰。`
+            `${getItemStr(c1, item1)} 與 ${getItemStr(c2, itemFarRight)} 不在隔壁。`
           ));
         }
 
@@ -504,12 +510,12 @@ export function generatePuzzle(
           cluePool.push(createClue(
             ClueType.LessThan,
             { catA: c1, itemA: item1, catB: c2, itemB: itemFar },
-            `${getItemStr(c1, item1)} 的位置比 ${getItemStr(c2, itemFar)} 還要靠左側。`
+            `${getItemStr(c1, item1)} 在 ${getItemStr(c2, itemFar)} 的左邊。`
           ));
           cluePool.push(createClue(
             ClueType.GreaterThan,
             { catA: c2, itemA: itemFar, catB: c1, itemB: item1 },
-            `${getItemStr(c2, itemFar)} 的位置比 ${getItemStr(c1, item1)} 還要靠右側。`
+            `${getItemStr(c2, itemFar)} 在 ${getItemStr(c1, item1)} 的右邊。`
           ));
         }
       }
